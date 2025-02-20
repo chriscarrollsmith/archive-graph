@@ -10,3 +10,4 @@ wheels/
 .venv
 .specstory
 csv_exports
+neo4j
