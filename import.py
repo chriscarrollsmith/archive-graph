@@ -31,6 +31,34 @@ def fetch_valid_account_ids() -> set[str]:
     print(f"Number of valid account IDs fetched: {len(valid_ids)}")  # Log the valid IDs
     return valid_ids
 
+def fetch_account_details(valid_ids: set[str]) -> dict[str, dict]:
+    """
+    Fetch account details (username, display name, bio, location, avatar) for valid IDs.
+    Joins 'account' and 'all_profile' tables.
+    """
+    try:
+        response: APIResponse = supabase.table("account") \
+            .select("account_id, username, account_display_name, all_profile(bio, location, avatar_media_url)") \
+            .in_("account_id", list(valid_ids)) \
+            .execute()
+    except APIError as e:
+        raise RuntimeError(f"Account details query failed: {str(e)}") from e
+
+    account_details = {}
+    for row in response.data:
+        account_id = row["account_id"]
+        # Handle the nested structure due to the join
+        profile_data = row.get("all_profile") or {}  # Default to empty dict if null
+        account_details[account_id] = {
+            "username": row["username"],
+            "account_display_name": row["account_display_name"],
+            "bio": profile_data.get("bio"),  # Use .get() for potentially missing keys
+            "location": profile_data.get("location"),
+            "avatar_media_url": profile_data.get("avatar_media_url"),
+        }
+    print(f"Number of account details fetched: {len(account_details)}")
+    return account_details
+
 def fetch_follower_relationships(valid_ids: set[str]) -> list[dict]:
     """
     Fetch rows from the 'followers' table where either:
@@ -50,9 +78,9 @@ def fetch_follower_relationships(valid_ids: set[str]) -> list[dict]:
     print(f"Number of follower relationships fetched: {len(response.data)}")
     return response.data
 
-def insert_relationships_into_neo4j(relationships: list[dict], valid_ids: set[str]) -> None:
+def insert_relationships_into_neo4j(relationships: list[dict], valid_ids: set[str], account_details: dict[str, dict]) -> None:
     """
-    Create nodes and edges in Neo4j. 
+    Create nodes and edges in Neo4j, including user details.
     The direction of the edge should be from followed -> follower.
     """
     print(f"Number of valid IDs inside insert_relationships_into_neo4j: {len(valid_ids)}") # Log valid_ids
@@ -71,16 +99,40 @@ def insert_relationships_into_neo4j(relationships: list[dict], valid_ids: set[st
                     print(f"Skipping invalid relationship: {followed_id} -> {follower_id}")
                     continue
 
+                # Get details for followed and follower users.  Use .get() with defaults.
+                followed_details = account_details.get(followed_id, {})
+                follower_details = account_details.get(follower_id, {})
+
                 # Use MERGE to upsert the nodes and relationship
                 cypher = """
                 MERGE (followed:User {id: $followed_id})
+                SET followed.username = $followed_username,
+                    followed.account_display_name = $followed_display_name,
+                    followed.bio = $followed_bio,
+                    followed.location = $followed_location,
+                    followed.avatar_media_url = $followed_avatar_url
                 MERGE (follower:User {id: $follower_id})
+                SET follower.username = $follower_username,
+                    follower.account_display_name = $follower_display_name,
+                    follower.bio = $follower_bio,
+                    follower.location = $follower_location,
+                    follower.avatar_media_url = $follower_avatar_url
                 MERGE (followed)-[:FOLLOWED_BY]->(follower)
                 """
                 tx.run(
                     cypher,
                     followed_id=followed_id,
-                    follower_id=follower_id
+                    follower_id=follower_id,
+                    followed_username=followed_details.get("username"),
+                    followed_display_name=followed_details.get("account_display_name"),
+                    followed_bio=followed_details.get("bio"),
+                    followed_location=followed_details.get("location"),
+                    followed_avatar_url=followed_details.get("avatar_media_url"),
+                    follower_username=follower_details.get("username"),
+                    follower_display_name=follower_details.get("account_display_name"),
+                    follower_bio=follower_details.get("bio"),
+                    follower_location=follower_details.get("location"),
+                    follower_avatar_url=follower_details.get("avatar_media_url")
                 )
                 print(f"Inserted relationship: {followed_id} -> {follower_id}")
             tx.commit()  # Commit the transaction
@@ -95,11 +147,14 @@ def main() -> None:
     # 1. Fetch valid account IDs
     valid_ids: set[str] = fetch_valid_account_ids()
 
-    # 2. Fetch all follower relationships that touch either user
+    # 2. Fetch account details
+    account_details: dict[str, dict] = fetch_account_details(valid_ids)
+
+    # 3. Fetch all follower relationships that touch either user
     relationships: list[dict] = fetch_follower_relationships(valid_ids)
 
-    # 3. Insert them into Neo4j with direction (followed -> follower)
-    insert_relationships_into_neo4j(relationships, valid_ids)
+    # 4. Insert them into Neo4j with direction (followed -> follower)
+    insert_relationships_into_neo4j(relationships, valid_ids, account_details)
 
     print("Done! Check your Neo4j database for the new graph data.")
 
