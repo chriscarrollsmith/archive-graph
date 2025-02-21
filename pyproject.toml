@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "neo4j>=5.28.1",
+    "postgrest>=0.19.3",
     "python-dotenv>=1.0.1",
     "supabase>=2.13.0",
 ]

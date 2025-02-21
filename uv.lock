@@ -83,6 +83,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "neo4j" },
+    { name = "postgrest" },
     { name = "python-dotenv" },
     { name = "supabase" },
 ]
@@ -90,6 +91,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "neo4j", specifier = ">=5.28.1" },
+    { name = "postgrest", specifier = ">=0.19.3" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "supabase", specifier = ">=2.13.0" },
 ]
