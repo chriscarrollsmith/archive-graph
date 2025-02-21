@@ -34,8 +34,13 @@ cd archive-graph
 uv sync
 ```
 
-## Usage
+## Import Data
 
 ```bash
 uv run python import.py
 ```
+
+## View the Graph
+
+Navigate to `http://localhost:7474/browser/` and login with your credentials ("neo4j" and "your-password" if you ran the Docker command above verbatim). Then click the "User" node to view the graph.
+
