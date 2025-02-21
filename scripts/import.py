@@ -7,8 +7,8 @@ from postgrest import APIResponse, APIError
 load_dotenv()
 
 # Neo4j connection setup
-URI = os.environ.get("NEO4J_URI")
-AUTH = (os.environ.get("NEO4J_USER"), os.environ.get("NEO4J_PASSWORD"))
+URI = os.environ.get("VITE_NEO4J_URI")
+AUTH = (os.environ.get("VITE_NEO4J_USER"), os.environ.get("VITE_NEO4J_PASSWORD"))
 
 # Verify connectivity to Neo4j
 driver: Driver = GraphDatabase.driver(URI, auth=AUTH)

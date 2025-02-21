@@ -37,7 +37,7 @@ uv sync
 ## Import Data
 
 ```bash
-uv run python import.py
+uv run python scripts/import.py
 ```
 
 ## View the Graph
