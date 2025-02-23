@@ -28,7 +28,8 @@ def fetch_valid_account_ids() -> set[str]:
 
     # Build a set of valid IDs
     valid_ids: set[str] = {row["account_id"] for row in response.data if "account_id" in row}
-    print(f"Number of valid account IDs fetched: {len(valid_ids)}")  # Log the valid IDs
+    print(f"Number of valid account IDs fetched: {len(valid_ids)}")
+    
     return valid_ids
 
 def fetch_account_details(valid_ids: set[str]) -> dict[str, dict]:
@@ -65,18 +66,44 @@ def fetch_follower_relationships(valid_ids: set[str]) -> list[dict]:
       - account_id is in [user_id_1, user_id_2], or
       - follower_account_id is in [user_id_1, user_id_2].
     This ensures we collect all follower relationships touching these two users.
-    """
+    """    
     try:
-        response: APIResponse = supabase.table("followers") \
-            .select("account_id, follower_account_id") \
-            .in_("account_id", valid_ids) \
-            .in_("follower_account_id", valid_ids) \
-            .execute()
+        # Convert valid_ids to list and ensure they're strings
+        valid_id_list = [str(id) for id in valid_ids]
+        
+        all_relationships = []
+        page = 0
+        page_size = 1000
+        
+        while True:
+            response: APIResponse = supabase.table("followers") \
+                .select("account_id, follower_account_id") \
+                .in_("account_id", valid_id_list) \
+                .in_("follower_account_id", valid_id_list) \
+                .range(page * page_size, (page + 1) * page_size - 1) \
+                .execute()
+                
+            current_batch = response.data
+            all_relationships.extend(current_batch)
+            
+            # If we got less than page_size results, we've hit the end
+            if len(current_batch) < page_size:
+                break
+                
+            page += 1
+            print(f"Fetched page {page} ({len(current_batch)} relationships)")
+            
+        print(f"\nTotal number of follower relationships fetched: {len(all_relationships)}")
+        
+        # Debug: Print first few results
+        print("\nFirst 5 relationships found:")
+        for i, row in enumerate(all_relationships[:5]):
+            print(f"{i+1}. {row['account_id']} -> {row['follower_account_id']}")
+            
+        return all_relationships
+        
     except APIError as e:
         raise RuntimeError(f"Follower query failed: {str(e)}") from e
-    
-    print(f"Number of follower relationships fetched: {len(response.data)}")
-    return response.data
 
 def insert_relationships_into_neo4j(relationships: list[dict], valid_ids: set[str], account_details: dict[str, dict]) -> None:
     """
@@ -134,7 +161,6 @@ def insert_relationships_into_neo4j(relationships: list[dict], valid_ids: set[st
                     follower_location=follower_details.get("location"),
                     follower_avatar_url=follower_details.get("avatar_media_url")
                 )
-                print(f"Inserted relationship: {followed_id} -> {follower_id}")
             tx.commit()  # Commit the transaction
             print("Transaction committed successfully.")
         except Exception as e:

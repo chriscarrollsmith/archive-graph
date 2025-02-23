@@ -1,3 +1,7 @@
+# Python import script
+
+This script imports data from a PostgreSQL database into a Neo4j graph database.
+
 ## Pre-requisites
 
 - uv
@@ -38,6 +42,24 @@ uv sync
 
 ```bash
 uv run python scripts/import.py
+```
+
+# Vite React Graph Viewer
+
+## Pre-requisites
+
+- [Node.js](https://nodejs.org/en/download/)
+
+## Install dependencies
+
+```bash
+npm install
+```
+
+## Run the app
+
+```bash
+npm start
 ```
 
 ## View the Graph
