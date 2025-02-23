@@ -13,12 +13,13 @@ import type { MouseEventCallbacks } from '@neo4j-nvl/react';
 import './App.css';
 
 // Neo4j connection details from environment variables
-const NEO4J_URI = import.meta.env.VITE_NEO4J_URI || 'neo4j://localhost:7687';
-const NEO4J_USER = import.meta.env.VITE_NEO4J_USER || 'neo4j';
+const NEO4J_URI = import.meta.env.VITE_NEO4J_URI;
+const NEO4J_USER = import.meta.env.VITE_NEO4J_USER;
 const NEO4J_PASSWORD = import.meta.env.VITE_NEO4J_PASSWORD;
 
-if (!NEO4J_PASSWORD) {
-  throw new Error('Neo4j password not set in environment variables');
+// No longer strictly necessary, but good for clarity:
+if (!NEO4J_URI || !NEO4J_USER || !NEO4J_PASSWORD) {
+  throw new Error('Neo4j connection details not set in environment variables');
 }
 
 interface UserNode extends NVLNode {
@@ -29,6 +30,10 @@ interface UserNode extends NVLNode {
     location: string;
     avatar: string;
     fallbackIcon?: string; // Add fallback icon
+    inDegree: number;
+    outDegree: number;
+    pageRank: number;
+    betweenness: number;
   };
 }
 
@@ -129,15 +134,47 @@ const App = () => {
       const session = driver.session();
 
       try {
-        // 1) Fetch user nodes
+        // Create graph projection for centrality algorithms
+        const setupQuery = `
+          CALL gds.graph.project('*',
+            {
+              User: {
+                properties: ['username', 'account_display_name']
+              }
+            },
+            {
+              FOLLOWED_BY: {
+                orientation: 'UNDIRECTED'
+              }
+            }
+          )
+        `;
+        await session.run(setupQuery);
+
+        // 1) Fetch user nodes with centrality metrics
         const nodeQuery = `
           MATCH (u:User)
+          // Calculate degree centrality
+          WITH u, size((u)<-[:FOLLOWED_BY]-()) as inDegree, 
+               size((u)-[:FOLLOWED_BY]->()) as outDegree
+          // Calculate PageRank
+          CALL gds.pageRank.stream('*')
+          YIELD nodeId, score as pageRank
+          WHERE id(u) = nodeId
+          // Calculate betweenness centrality
+          CALL gds.betweenness.stream('*')
+          YIELD nodeId, score as betweenness
+          WHERE id(u) = nodeId
           RETURN u.id AS id,
                  u.username AS username,
                  u.account_display_name AS displayName,
                  u.avatar_media_url AS avatar,
                  u.bio AS bio,
-                 u.location AS location
+                 u.location AS location,
+                 inDegree,
+                 outDegree,
+                 pageRank,
+                 betweenness
         `;
         const nodeResult = await session.run(nodeQuery);
         const nvlNodes: UserNode[] = nodeResult.records.map((rec) => {
@@ -147,13 +184,17 @@ const App = () => {
           const avatar = rec.get('avatar') || '';
           const bio = rec.get('bio') || '';
           const location = rec.get('location') || '';
+          const inDegree = rec.get('inDegree').toNumber();
+          const outDegree = rec.get('outDegree').toNumber();
+          const pageRank = rec.get('pageRank').toNumber();
+          const betweenness = rec.get('betweenness').toNumber();
 
           // Generate fallback icon data
           const initials = getInitials(displayName, username);
           const backgroundColor = getColorFromString(username);
           const fallbackIcon = createTextAvatar(initials, backgroundColor);
 
-          // Return NVL-friendly node
+          // Return NVL-friendly node with centrality metrics
           return {
             id,
             data: { 
@@ -162,12 +203,16 @@ const App = () => {
               bio, 
               location, 
               avatar,
-              fallbackIcon 
+              fallbackIcon,
+              inDegree,
+              outDegree,
+              pageRank,
+              betweenness
             },
             // Use the fallback icon as a backup
             icon: avatar || fallbackIcon,
-            // Increase node size and adjust styling for better image display
-            size: 40,
+            // Increase node size based on PageRank (normalized)
+            size: 40 * (1 + pageRank),
             html: createAvatarHtml(avatar, fallbackIcon)
           };
         });
@@ -269,6 +314,12 @@ const App = () => {
           <div>@{hoveredNode.data.username}</div>
           {hoveredNode.data.bio && <div>{hoveredNode.data.bio}</div>}
           {hoveredNode.data.location && <div>{hoveredNode.data.location}</div>}
+          <div style={{ marginTop: 8, fontSize: '0.9em', color: '#666' }}>
+            <div>Followers: {hoveredNode.data.inDegree}</div>
+            <div>Following: {hoveredNode.data.outDegree}</div>
+            <div>PageRank: {hoveredNode.data.pageRank.toFixed(4)}</div>
+            <div>Betweenness: {hoveredNode.data.betweenness.toFixed(4)}</div>
+          </div>
           {hoveredNode.data.avatar && (
             <img
               src={hoveredNode.data.avatar}
