@@ -32,7 +32,7 @@ interface UserNode extends NVLNode {
   };
 }
 
-function createAvatarHtml(url: string): HTMLElement {
+function createAvatarHtml(url: string, fallbackIcon: string): HTMLElement {
   const container = document.createElement('div');
   
   // Make the container fill the entire node diameter
@@ -43,8 +43,19 @@ function createAvatarHtml(url: string): HTMLElement {
   container.style.borderRadius = '50%';
   container.style.overflow = 'hidden';
 
-  // Use background-image to fill the container
-  container.style.background = `url('${url}') center/cover no-repeat`;
+  // Create an image element to pre-load and check for errors
+  const img = new Image();
+  img.src = url;
+
+  img.onload = () => {
+    // If the image loads successfully, use it as the background
+    container.style.background = `url('${url}') center/cover no-repeat`;
+  }
+
+  img.onerror = () => {
+    // If there's an error loading the image, use the fallback icon
+    container.style.background = `url('${fallbackIcon}') center/cover no-repeat`;
+  }
 
   return container;
 }
@@ -157,7 +168,7 @@ const App = () => {
             icon: avatar || fallbackIcon,
             // Increase node size and adjust styling for better image display
             size: 40,
-            html: createAvatarHtml(avatar)
+            html: createAvatarHtml(avatar, fallbackIcon)
           };
         });
 

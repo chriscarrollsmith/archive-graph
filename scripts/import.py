@@ -4,7 +4,7 @@ from supabase import create_client, Client, ClientOptions
 from neo4j import GraphDatabase, Driver
 from postgrest import APIResponse, APIError
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Neo4j connection setup
 URI = os.environ.get("VITE_NEO4J_URI")
