@@ -7,10 +7,23 @@
     "serve": "vite preview"
   },
   "dependencies": {
+    "@neo4j-bloom/dagre": "^0.8.14",
     "@neo4j-nvl/base": "^0.3.6",
     "@neo4j-nvl/interaction-handlers": "^0.3.6",
     "@neo4j-nvl/react": "^0.3.6",
+    "@segment/facade": "^3.4.10",
+    "@types/dagre": "^0.7.52",
+    "@types/lodash-es": "^4.17.12",
+    "bin-pack": "^1.0.2",
+    "concaveman": "^1.2.1",
+    "dagre": "^0.8.5",
+    "lodash": "^4.17.21",
+    "lodash-es": "^4.17.21",
+    "lodash.constant": "^3.0.0",
+    "lodash.defaults": "^4.2.0",
+    "lodash.has": "^4.5.2",
     "neo4j-driver": "^5.28.1",
+    "playwright": "^1.50.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
