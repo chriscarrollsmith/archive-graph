@@ -337,6 +337,22 @@ const App = () => {
           setNodes(nvlNodes);
           setRels(nvlRels);
           setIsInitialized(true);
+
+          // --- New code to log top users ---
+          const topUsers = (metric: keyof UserNode['data']) => {
+            const sorted = [...nvlNodes].sort((a, b) => (b.data[metric] as number) - (a.data[metric] as number));
+            return sorted.slice(0, 3).map(node => ({
+              username: node.data.username,
+              value: node.data[metric]
+            }));
+          };
+
+          console.log('Top 3 users by inDegree:', topUsers('inDegree'));
+          console.log('Top 3 users by outDegree:', topUsers('outDegree'));
+          console.log('Top 3 users by pageRank:', topUsers('pageRank'));
+          console.log('Top 3 users by betweenness:', topUsers('betweenness'));
+          // --- End of new code ---
+
         } finally {
           await nodeSession.close();
         }
